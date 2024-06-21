@@ -39,10 +39,10 @@ public class SocialMediaController {
         app.post("/login", this::loginHandler);
         app.post("/messages", this::createMessageHandler);
         app.get("/messages", this::getAllMessagesHandler);
-        app.get("/messages/{message_id}", this::exampleHandler);
-        app.delete("/messages/{message_id}", this::exampleHandler);
-        app.patch("/messages/{message_id}", this::exampleHandler);
-        app.patch("/accounts/{account_id}/messages", this::exampleHandler);
+        app.get("/messages/{message_id}", this::findMessageByIdHandler);
+        app.delete("/messages/{message_id}", this::deleteMessageHandler);
+        app.patch("/messages/{message_id}", this::updateMessageHandler);
+        app.get("/accounts/{account_id}/messages", this::getAllMessagesFromAccountIdHandler);
 
         return app;
     }
@@ -51,6 +51,7 @@ public class SocialMediaController {
      * Registers the user to the database.
      * Status 200 if successful, Status 400 if unsuccessful.
      * @param ctx The Javalin Context object, which provides information about the HTTP request and response.
+     * @throws JsonProcessingException
      */
     private void registerHandler(Context ctx) throws JsonProcessingException{
         ObjectMapper om = new ObjectMapper();
@@ -91,6 +92,7 @@ public class SocialMediaController {
     /**
      * Creates a new message in the database.
      * @param ctx The Javalin Context object manages information about both the HTTP request and response.
+     * @throws JsonProcessingException
      */
     private void createMessageHandler(Context ctx) throws JsonProcessingException {
         ObjectMapper om = new ObjectMapper();
@@ -117,12 +119,77 @@ public class SocialMediaController {
     }
 
     /**
-     * This is an example handler for an example endpoint.
-     * @param context The Javalin Context object manages information about both the HTTP request and response.
+     * Finds message information based on the message id.
+     * @param ctx The Javalin Context object manages information about both the HTTP request and response.
+     * @throws JsonProcessingException
      */
-    private void exampleHandler(Context context) {
-        context.json("sample text");
+    private void findMessageByIdHandler(Context ctx) throws JsonProcessingException{
+        ObjectMapper om = new ObjectMapper();
+        int messageId = Integer.parseInt(ctx.pathParam("message_id"));
+        Message currentMessage = this.messageService.getMessageByMessageId(messageId);
+
+        //If there is message information, it has been successfully found.
+        if(currentMessage != null){
+            ctx.json(om.writeValueAsString(currentMessage));
+        }
+        //If not, there is no message.
+        else
+            ctx.json("");
+
+        ctx.status(200);
     }
 
+    /**
+     * Deletes a message based on the message id.
+     * @param ctx The Javalin Context object manages information about both the HTTP request and response.
+     * @throws JsonProcessingException
+     */
+    private void deleteMessageHandler(Context ctx) throws JsonProcessingException{
+        ObjectMapper om = new ObjectMapper();
+        int messageId = Integer.parseInt(ctx.pathParam("message_id"));
+        Message currentMessage = this.messageService.deleteMessage(messageId);
 
+        //If there is message information, a message has been successfully deleted.
+        if(currentMessage != null){
+            ctx.json(om.writeValueAsString(currentMessage));
+        }
+        //If not, no message was deleted.
+        else
+            ctx.json("");
+
+        ctx.status(200);
+    }
+
+    /**
+     * Updates a message based on the message id and message text provided.
+     * @param ctx The Javalin Context object manages information about both the HTTP request and response.
+     * @throws JsonProcessingException
+     */
+    private void updateMessageHandler(Context ctx) throws JsonProcessingException{
+        ObjectMapper om = new ObjectMapper();
+        int messageId = Integer.parseInt(ctx.pathParam("message_id"));
+        Message messageText = om.readValue(ctx.body().toString(), Message.class);
+        Message currentMessage = this.messageService.updateMessage(messageId, messageText.getMessage_text());
+
+        //If there is message information, a message has been successfully updated.
+        if(currentMessage != null){
+            ctx.json(om.writeValueAsString(currentMessage));
+            ctx.status(200);
+        }
+        //If not, no message was updated.
+        else{
+            ctx.json("");
+            ctx.status(400);
+        }
+    }
+
+    /**
+     * Creates a list of all messages in the database posted by the account id given.
+     * @param ctx The Javalin Context object manages information about both the HTTP request and response.
+     */
+    private void getAllMessagesFromAccountIdHandler(Context ctx) {
+        List<Message> allMessages = this.messageService.getAllMessagesByAccountId(Integer.parseInt(ctx.pathParam("account_id")));
+        ctx.json(allMessages);
+        ctx.status(200);
+    }
 }
